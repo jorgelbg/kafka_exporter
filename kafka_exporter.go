@@ -366,7 +366,6 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			plog.Errorf("Cannot connect to broker %d: %v", broker.ID(), err)
 			return
 		}
-		defer broker.Close()
 
 		groups, err := broker.ListGroups(&sarama.ListGroupsRequest{})
 		if err != nil {
