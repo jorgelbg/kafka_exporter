@@ -58,7 +58,7 @@ type Exporter struct {
 	zookeeperClient         *kazoo.Kazoo
 	nextMetadataRefresh     time.Time
 	metadataRefreshInterval time.Duration
-	excludeMode             bool
+	filterMode              bool
 }
 
 type kafkaOpts struct {
@@ -114,7 +114,7 @@ func canReadFile(path string) bool {
 }
 
 // NewExporter returns an initialized Exporter.
-func NewExporter(opts kafkaOpts, topicFilter string, groupFilter string, excludeMode bool) (*Exporter, error) {
+func NewExporter(opts kafkaOpts, topicFilter string, groupFilter string, filterMode bool) (*Exporter, error) {
 	var zookeeperClient *kazoo.Kazoo
 	config := sarama.NewConfig()
 	config.ClientID = clientID
@@ -196,7 +196,7 @@ func NewExporter(opts kafkaOpts, topicFilter string, groupFilter string, exclude
 		zookeeperClient:         zookeeperClient,
 		nextMetadataRefresh:     time.Now(),
 		metadataRefreshInterval: interval,
-		excludeMode:             excludeMode,
+		filterMode:              filterMode,
 	}, nil
 }
 
@@ -250,7 +250,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	getTopicMetrics := func(topic string) {
 		defer wg.Done()
 		// logical XOR between both boolean variables
-		if e.topicFilter.MatchString(topic) != e.excludeMode {
+		if e.topicFilter.MatchString(topic) != e.filterMode {
 			partitions, err := e.client.Partitions(topic)
 			if err != nil {
 				plog.Errorf("Cannot get partitions of topic %s: %v", topic, err)
@@ -375,7 +375,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		groupIds := make([]string, 0)
 		for groupId := range groups.Groups {
 			// logical XOR between both boolean variables
-			if e.groupFilter.MatchString(groupId) != e.excludeMode {
+			if e.groupFilter.MatchString(groupId) != e.filterMode {
 				groupIds = append(groupIds, groupId)
 			}
 		}
@@ -476,7 +476,7 @@ func main() {
 		topicFilter   = kingpin.Flag("topic.filter", "Regex that determines which topics to collect.").Default(".*").String()
 		groupFilter   = kingpin.Flag("group.filter", "Regex that determines which consumer groups to collect.").Default(".*").String()
 		logSarama     = kingpin.Flag("log.enable-sarama", "Turn on Sarama logging.").Default("false").Bool()
-		excludeMode   = kingpin.Flag("filter.exclude", "Toggle the include/exclude mode for the topic and group filters.").Default("false").Bool()
+		filterMode    = kingpin.Flag("filter.exclude", "Toggle the include/exclude mode for the topic and group filters.").Default("false").Bool()
 
 		opts = kafkaOpts{}
 	)
@@ -607,7 +607,7 @@ func main() {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 	}
 
-	exporter, err := NewExporter(opts, *topicFilter, *groupFilter, *excludeMode)
+	exporter, err := NewExporter(opts, *topicFilter, *groupFilter, *filterMode)
 	if err != nil {
 		plog.Fatalln(err)
 	}
