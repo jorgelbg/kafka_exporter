@@ -94,6 +94,7 @@ func (e *Exporter) getTopicMetrics(topic string, offsetChan chan<- topicOffset, 
 	now := time.Now()
 	c := <-e.clientPool
 	defer func() { e.clientPool <- c }()
+
 	partitions, err := c.Partitions(topic)
 	if err != nil {
 		plog.Errorf("Cannot get partitions of topic %s: %v", topic, err)
@@ -102,8 +103,10 @@ func (e *Exporter) getTopicMetrics(topic string, offsetChan chan<- topicOffset, 
 	ch <- prometheus.MustNewConstMetric(
 		topicPartitions, prometheus.GaugeValue, float64(len(partitions)), topic,
 	)
+
 	plog.Debugf("%s to match topic", time.Now().Sub(now))
 	tOff.Partitions = make(map[int32]int64, len(partitions))
+
 	wg := sync.WaitGroup{}
 	for _, partition := range partitions {
 		wg.Add(1)
@@ -117,15 +120,16 @@ func (e *Exporter) getTopicMetrics(topic string, offsetChan chan<- topicOffset, 
 		}(partition)
 	}
 	wg.Wait()
+
 	if e.useZooKeeperLag {
 		for _, partition := range partitions {
-			ConsumerGroups, err := e.zookeeperClient.Consumergroups()
+			consumerGroups, err := e.zkClient.Consumergroups()
 
 			if err != nil {
 				plog.Errorf("Cannot get consumer group %v", err)
 			}
 
-			for _, group := range ConsumerGroups {
+			for _, group := range consumerGroups {
 				offset, _ := group.FetchOffset(topic, partition)
 				if offset > 0 {
 
@@ -137,5 +141,6 @@ func (e *Exporter) getTopicMetrics(topic string, offsetChan chan<- topicOffset, 
 			}
 		}
 	}
+
 	offsetChan <- tOff
 }

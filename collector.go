@@ -2,7 +2,6 @@ package main
 
 import (
 	"sync"
-	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/prometheus/client_golang/prometheus"
@@ -66,8 +65,6 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		offset[to.Name] = to.Partitions
 	}
 	e.mu.Unlock()
-	plog.Debugf("Took %s to get topic metrics", time.Now().Sub(now))
-	now = time.Now()
 
 	if len(e.client.Brokers()) > 0 {
 		for _, broker := range e.client.Brokers() {
@@ -81,5 +78,4 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	} else {
 		plog.Errorln("No valid broker, cannot get consumer group metrics")
 	}
-	plog.Debugf("Took %s to get group metrics", time.Now().Sub(now))
 }

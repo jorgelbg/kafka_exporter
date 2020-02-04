@@ -50,7 +50,7 @@ type Exporter struct {
 	groupFilter             *regexp.Regexp
 	mu                      sync.Mutex
 	useZooKeeperLag         bool
-	zookeeperClient         *kazoo.Kazoo
+	zkClient                *kazoo.Kazoo
 	nextMetadataRefresh     time.Time
 	metadataRefreshInterval time.Duration
 	filterMode              bool
@@ -112,7 +112,7 @@ func canReadFile(path string) bool {
 
 // NewExporter returns an initialized Exporter.
 func NewExporter(opts kafkaOpts, topicFilter string, groupFilter string, filterMode bool) (*Exporter, error) {
-	var zookeeperClient *kazoo.Kazoo
+	var zkClient *kazoo.Kazoo
 	config := sarama.NewConfig()
 	config.ClientID = clientID
 	kafkaVersion, err := sarama.ParseKafkaVersion(opts.kafkaVersion)
@@ -167,7 +167,7 @@ func NewExporter(opts kafkaOpts, topicFilter string, groupFilter string, filterM
 	if opts.useZooKeeperLag {
 		zkURI := kazoo.BuildConnectionStringWithChroot(opts.uriZookeeper, opts.zkRoot)
 		plog.Infof("Zookeper URI: %s", zkURI)
-		zookeeperClient, err = kazoo.NewKazooFromConnectionString(zkURI, nil)
+		zkClient, err = kazoo.NewKazooFromConnectionString(zkURI, nil)
 	}
 
 	interval, err := time.ParseDuration(opts.metadataRefreshInterval)
@@ -209,7 +209,7 @@ func NewExporter(opts kafkaOpts, topicFilter string, groupFilter string, filterM
 		topicFilter:             regexp.MustCompile(topicFilter),
 		groupFilter:             regexp.MustCompile(groupFilter),
 		useZooKeeperLag:         opts.useZooKeeperLag,
-		zookeeperClient:         zookeeperClient,
+		zkClient:                zkClient,
 		nextMetadataRefresh:     time.Now(),
 		metadataRefreshInterval: interval,
 		filterMode:              filterMode,
