@@ -4,9 +4,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/honeycombio/libhoney-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	plog "github.com/prometheus/common/log"
@@ -161,6 +164,14 @@ func main() {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 	}
 
+	// beeline.Init(beeline.Config{
+	// 	WriteKey: "7692faaefa35e76a407a8f68127326a4",
+	// 	Dataset:  "kafka-lag-exporter",
+	// })
+	// defer beeline.Close()
+
+	// addCommonLibhoneyFields()
+
 	exporter, err := NewExporter(opts, *topicFilter, *groupFilter, *filterMode)
 	if err != nil {
 		plog.Fatalln(err)
@@ -168,7 +179,9 @@ func main() {
 	defer exporter.client.Close()
 	prometheus.MustRegister(exporter)
 
+	// http.Handle(*metricsPath, hnynethttp.WrapHandler(promhttp.Handler()))
 	http.Handle(*metricsPath, promhttp.Handler())
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
 	        <head><title>Kafka Exporter</title></head>
@@ -181,4 +194,22 @@ func main() {
 
 	plog.Infoln("Listening on", *listenAddress)
 	plog.Fatal(http.ListenAndServe(*listenAddress, nil))
+}
+
+// addCommonLibhoneyFields adds a few fields we want in all events
+func addCommonLibhoneyFields() {
+	// TODO what other fields should we add here for extra color?
+	libhoney.AddDynamicField("meta.num_goroutines",
+		func() interface{} { return runtime.NumGoroutine() })
+	getAlloc := func() interface{} {
+		var mem runtime.MemStats
+		runtime.ReadMemStats(&mem)
+		return mem.Alloc
+	}
+	libhoney.AddDynamicField("meta.memory_inuse", getAlloc)
+
+	startTime := time.Now()
+	libhoney.AddDynamicField("meta.process_uptime_sec", func() interface{} {
+		return time.Now().Sub(startTime) / time.Second
+	})
 }

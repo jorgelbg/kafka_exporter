@@ -78,4 +78,8 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	} else {
 		plog.Errorln("No valid broker, cannot get consumer group metrics")
 	}
+
+	if e.useZooKeeperLag {
+		e.FetchZookeeperLag(ch, offset)
+	}
 }

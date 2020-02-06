@@ -51,6 +51,7 @@ type Exporter struct {
 	mu                      sync.Mutex
 	useZooKeeperLag         bool
 	zkClient                *kazoo.Kazoo
+	zkPool                  chan *kazoo.Kazoo
 	nextMetadataRefresh     time.Time
 	metadataRefreshInterval time.Duration
 	filterMode              bool
@@ -164,12 +165,6 @@ func NewExporter(opts kafkaOpts, topicFilter string, groupFilter string, filterM
 		}
 	}
 
-	if opts.useZooKeeperLag {
-		zkURI := kazoo.BuildConnectionStringWithChroot(opts.uriZookeeper, opts.zkRoot)
-		plog.Infof("Zookeper URI: %s", zkURI)
-		zkClient, err = kazoo.NewKazooFromConnectionString(zkURI, nil)
-	}
-
 	interval, err := time.ParseDuration(opts.metadataRefreshInterval)
 	if err != nil {
 		plog.Errorln("Cannot parse metadata refresh interval")
@@ -202,6 +197,24 @@ func NewExporter(opts kafkaOpts, topicFilter string, groupFilter string, filterM
 
 	plog.Infoln("Done Init Clients")
 
+	zkPool := make(chan *kazoo.Kazoo, opts.clientPoolSize)
+	if opts.useZooKeeperLag {
+		zkURI := kazoo.BuildConnectionStringWithChroot(opts.uriZookeeper, opts.zkRoot)
+		plog.Infof("Zookeper URI: %s", zkURI)
+		zkClient, err = kazoo.NewKazooFromConnectionString(zkURI, nil)
+
+		for i := 0; i < opts.clientPoolSize; i++ {
+			plog.Infof("Zookeeper: %d", i)
+			zk, err := kazoo.NewKazooFromConnectionString(zkURI, nil)
+			if err != nil {
+				plog.Errorf("Failed to start zookeeper pool connection: %+v", err)
+				continue
+			}
+
+			zkPool <- zk
+		}
+	}
+
 	// Init our exporter.
 	return &Exporter{
 		client:                  client,
@@ -210,6 +223,7 @@ func NewExporter(opts kafkaOpts, topicFilter string, groupFilter string, filterM
 		groupFilter:             regexp.MustCompile(groupFilter),
 		useZooKeeperLag:         opts.useZooKeeperLag,
 		zkClient:                zkClient,
+		zkPool:                  zkPool,
 		nextMetadataRefresh:     time.Now(),
 		metadataRefreshInterval: interval,
 		filterMode:              filterMode,

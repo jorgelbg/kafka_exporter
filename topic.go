@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+
 	"github.com/prometheus/client_golang/prometheus"
 	plog "github.com/prometheus/common/log"
 )
@@ -111,7 +112,6 @@ func (e *Exporter) getTopicMetrics(topic string, offsetChan chan<- topicOffset, 
 	for _, partition := range partitions {
 		wg.Add(1)
 		go func(partition int32) {
-
 			curr := getPartitionMetrics(c, topic, partition, ch)
 			e.mu.Lock()
 			tOff.Partitions[partition] = curr
@@ -120,27 +120,6 @@ func (e *Exporter) getTopicMetrics(topic string, offsetChan chan<- topicOffset, 
 		}(partition)
 	}
 	wg.Wait()
-
-	if e.useZooKeeperLag {
-		for _, partition := range partitions {
-			consumerGroups, err := e.zkClient.Consumergroups()
-
-			if err != nil {
-				plog.Errorf("Cannot get consumer group %v", err)
-			}
-
-			for _, group := range consumerGroups {
-				offset, _ := group.FetchOffset(topic, partition)
-				if offset > 0 {
-
-					consumerGroupLag := tOff.Partitions[partition] - offset
-					ch <- prometheus.MustNewConstMetric(
-						consumergroupLagZookeeper, prometheus.GaugeValue, float64(consumerGroupLag), group.Name, topic, strconv.FormatInt(int64(partition), 10),
-					)
-				}
-			}
-		}
-	}
 
 	offsetChan <- tOff
 }
