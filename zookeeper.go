@@ -44,15 +44,6 @@ func (e *Exporter) FetchZookeeperLag(ch chan<- prometheus.Metric, topicOffsets m
 			}
 			wg.Done()
 		}(group)
-
-		// 	group.FetchAllOffsets()
-		// 	offset, _ := group.FetchOffset(topic, partition)
-		// 	if offset > 0 {
-		// 		consumerGroupLag := tOff.Partitions[partition] - offset
-		// 		ch <- prometheus.MustNewConstMetric(
-		// 			consumergroupLagZookeeper, prometheus.GaugeValue, float64(consumerGroupLag), group.Name, topic, strconv.FormatInt(int64(partition), 10),
-		// 		)
-		// 	}
 	}
 	wg.Wait()
 

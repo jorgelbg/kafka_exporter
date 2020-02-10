@@ -50,7 +50,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	var wg = sync.WaitGroup{}
 	rc := make(chan topicOffset, len(topics))
 	for _, topic := range topics {
-		if e.topicFilter.MatchString(topic) {
+		if e.topicFilter.MatchString(topic) != e.filterMode {
 			wg.Add(1)
 			go func(topic string) {
 				e.getTopicMetrics(topic, rc, ch)
