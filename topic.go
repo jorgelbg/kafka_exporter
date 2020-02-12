@@ -87,12 +87,6 @@ func getPartitionMetrics(c sarama.Client, topic string, partition int32, ch chan
 }
 
 func (e *Exporter) getTopicMetrics(topic string, offsetChan chan<- topicOffset, ch chan<- prometheus.Metric) {
-	// offset map[string]map[int32]int64
-	// fmt.Printf("topic=%s match=%+v - mode=%+v keep=%+v\n", topic, e.topicFilter.MatchString(topic), e.filterMode,
-	// 	(e.topicFilter.MatchString(topic) == e.filterMode))
-	// if e.topicFilter.MatchString(topic) == e.filterMode {
-	// 	return
-	// }
 	tOff := topicOffset{Name: topic}
 	now := time.Now()
 	c := <-e.clientPool
