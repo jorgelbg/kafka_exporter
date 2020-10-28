@@ -25,7 +25,7 @@ func (e *Exporter) FetchZookeeperLag(ch chan<- prometheus.Metric, topicOffsets m
 	wg := sync.WaitGroup{}
 	for _, group := range consumerGroups {
 		// skip consumergroups that don't match the user-defined groupFilter
-		if !e.groupFilter.MatchString(group.Name) != e.filterMode {
+		if e.groupFilter.MatchString(group.Name) == e.filterMode {
 			continue
 		}
 
@@ -38,6 +38,13 @@ func (e *Exporter) FetchZookeeperLag(ch chan<- prometheus.Metric, topicOffsets m
 						plog.Errorf("Error fetching offset from topic: %s, consumergroup: %s, err: %s", topic, group.Name, err)
 						continue
 					}
+
+					// FetchOffset hides the ErrNoNode error if the topic is not consumed by the
+					// consumer group and returns a -1 instead.
+					if currentOffset == -1 {
+						continue
+					}
+
 					lag := offset - currentOffset
 					ch <- prometheus.MustNewConstMetric(
 						consumergroupLagZookeeper, prometheus.GaugeValue,
